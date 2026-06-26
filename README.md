@@ -13,9 +13,9 @@ The full reasoning behind the framework — capital structure, position sizing, 
 
 Coins where 100x lives are the ones that pump in their first 30 minutes after launch. Catching those requires custom Solana RPC infrastructure, mempool access, and sniper bots in the first few blocks. **A Python CLI polling public APIs cannot compete there.** The coins this scanner surfaces are a different, safer class — established or semi-established memecoins (WIF/BONK/POPCAT-class, plus newer coins that have survived 24h+ with verified safety). Lower upside per coin, vastly higher survival rate. If you want a 30-minute-launch sniper, that's a different tool, a paid RPC, and a different conversation.
 
-Two more things this tool *doesn't* and won't do in v1:
+Two more things this tool *doesn't* and won't do:
 
-- **LP-burn auto-detection is conservative.** DexScreener returns the AMM pool address, not the LP token mint. Parsing the Raydium v4 pool struct to extract the LP mint is brittle across DEXes (Orca, Meteora, pump.fun pools differ). So v1 reports "LP burn status: unknown" when it can't resolve it, and the rule fails. **Before every trade, manually verify LP burn at https://rugcheck.xyz/tokens/&lt;mint&gt;.** This is the right conservative default — fake-passing the check would be worse than failing.
+- **LP-burn detection is delegated to RugCheck.xyz.** DexScreener returns the AMM pool address, not the LP token mint, and parsing Raydium v4 / Orca / Meteora pool structs ourselves is brittle. RugCheck already does this across DEXes and exposes `markets[].lp.lpLockedPct`, which we USD-weight across pools. If RugCheck is unreachable or its response is malformed, the rule falls back to "unknown" — and the candidate fails the safety check. Better to fail than fake-pass. The agent sandbox proxy I built this in blocks `api.rugcheck.xyz`, so the RugCheck wiring is verified against fixtures in `tests/test_offline.py` but **not** against a live response — you should sanity-check on your machine that the first `trader check <mint>` you run returns a sensible `LP burned: NN.N%` line.
 - **No wallet integration.** Out of scope on purpose. The foot-gun blast radius of holding a hot wallet inside a CLI is too high for the marginal convenience.
 
 ## Install
@@ -91,7 +91,7 @@ python -m trader journal --override-tripwire "slept on it, sized down to $30"
 python -m tests.test_offline
 ```
 
-11 offline tests cover the rule logic, scoring (including blow-off-top penalty), thesis validation, journal roundtrip, and tripwire activation. They don't hit the network.
+14 offline tests cover the rule logic, scoring (including blow-off-top penalty), thesis validation, journal roundtrip, tripwire activation, and RugCheck response parsing (clean burn, unlocked LP with risk findings, missing-fields defensiveness). They don't hit the network.
 
 ## File layout
 
@@ -101,6 +101,7 @@ trader/
   __main__.py          enables `python -m trader …`
   dexscreener.py       DexScreener API client (pools, boosts, profiles)
   solana_rpc.py        Solana JSON-RPC client (authorities, holders, supply)
+  rugcheck.py          RugCheck.xyz client (LP-burn % + risk findings)
   rules.py             5 entry rules as pure functions
   candidate.py         glue: assembles a Candidate from DexScreener + RPC
   scoring.py           rank passing candidates (penalizes blow-off tops)

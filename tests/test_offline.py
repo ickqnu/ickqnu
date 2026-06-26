@@ -13,7 +13,7 @@ from pathlib import Path
 # Make the package importable when run as a script from repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from trader import journal, scoring  # noqa: E402
+from trader import journal, rugcheck, scoring  # noqa: E402
 from trader.cli_present import _validate_thesis, render_card  # noqa: E402
 from trader.dexscreener import Pool, TokenSnapshot  # noqa: E402
 from trader.rules import Candidate, all_passed, evaluate  # noqa: E402
@@ -165,6 +165,53 @@ def test_position_size_clamp_logic() -> None:
     print(f"ok  position size always clamped to ≤${MAX_POSITION_USD}")
 
 
+def test_rugcheck_parse_clean_burn() -> None:
+    fixture = {
+        "token": {"mintAuthority": None, "freezeAuthority": None},
+        "markets": [
+            {"lp": {"lpLockedPct": 99.7, "lpLockedUSD": 480_000}},
+            {"lp": {"lpLockedPct": 100.0, "lpLockedUSD": 12_000}},
+        ],
+        "risks": [],
+        "score_normalised": 12.0,
+        "topHolders": [{"pct": 4.1}],
+    }
+    rep = rugcheck.parse_report("M", fixture)
+    assert rep.lp_locked_pct is not None
+    assert 99.5 < rep.lp_locked_pct < 100.0
+    assert rep.mint_authority_present is False
+    assert rep.freeze_authority_present is False
+    assert rep.risk_findings == []
+    assert rep.top_holder_pct == 4.1
+    print(f"ok  rugcheck parses clean burn (lp_locked={rep.lp_locked_pct:.2f}%)")
+
+
+def test_rugcheck_parse_unlocked_lp_with_risks() -> None:
+    fixture = {
+        "token": {"mintAuthority": "Auth111", "freezeAuthority": None},
+        "markets": [{"lp": {"lpLockedPct": 12.3, "lpLockedUSD": 50_000}}],
+        "risks": [{"name": "LP not locked"}, {"name": "Mint authority enabled"}],
+        "score": 4500,
+        "topHolders": [{"pct": 31.2}],
+    }
+    rep = rugcheck.parse_report("M", fixture)
+    assert rep.lp_locked_pct is not None and rep.lp_locked_pct < 50
+    assert rep.mint_authority_present is True
+    assert "LP not locked" in rep.risk_findings
+    assert "Mint authority enabled" in rep.risk_findings
+    print(f"ok  rugcheck parses unlocked LP + risk findings ({len(rep.risk_findings)} risks)")
+
+
+def test_rugcheck_parse_missing_fields() -> None:
+    # Empty response should not crash; all derived fields collapse to None.
+    rep = rugcheck.parse_report("M", {})
+    assert rep.lp_locked_pct is None
+    assert rep.risk_findings == []
+    assert rep.mint_authority_present is None
+    assert rep.freeze_authority_present is None
+    print("ok  rugcheck parser is defensive against empty/missing fields")
+
+
 def test_daily_limit_logic() -> None:
     with tempfile.TemporaryDirectory() as d:
         p = Path(d) / "j.jsonl"
@@ -186,6 +233,9 @@ def run_all() -> int:
         test_thesis_validation,
         test_score_caps_blowoff_top,
         test_journal_roundtrip,
+        test_rugcheck_parse_clean_burn,
+        test_rugcheck_parse_unlocked_lp_with_risks,
+        test_rugcheck_parse_missing_fields,
         test_position_size_clamp_logic,
         test_daily_limit_logic,
     ]
