@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+.trader/
+journal.jsonl
+*.egg-info/
+.pytest_cache/
+.DS_Store
