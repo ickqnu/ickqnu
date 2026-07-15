@@ -4,7 +4,7 @@ import { useTypewriter } from '../hooks/useTypewriter'
 const TYPEWRITER_TEXT =
   'Glad you stopped in. Good taste tends to find us. Now, what are we building?'
 
-const EMAIL = 'hello@mainframe.co'
+const EMAIL = 'hello@hamco.co'
 
 const PILL_LABELS = [
   'Pitch us an idea',
@@ -61,7 +61,7 @@ export default function Hero() {
         >
           Hey there, meet A.R.I.A,
           <br />
-          Mainframe&apos;s Adaptive Response Interface Agent
+          Hamco&apos;s Adaptive Response Interface Agent
         </p>
 
         <p

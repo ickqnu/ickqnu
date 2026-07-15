@@ -13,7 +13,7 @@ export default function Navbar() {
             className="text-[21px] tracking-tight text-black sm:text-[26px]"
             style={{ fontFamily: 'var(--font-heading)' }}
           >
-            Mainframe&reg;
+            Hamco&reg;
           </span>
           <span
             className="text-[25px] text-black select-none sm:text-[30px]"
