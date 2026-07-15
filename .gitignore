@@ -7,3 +7,7 @@ journal.jsonl
 *.egg-info/
 .pytest_cache/
 .DS_Store
+
+# Node / Vite
+node_modules/
+dist/
